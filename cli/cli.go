@@ -157,7 +157,7 @@ func run(opts Options, r io.Reader, filename string) error {
 	var buf bytes.Buffer
 	src := io.TeeReader(r, &buf)
 
-	image, err := germanium.NewImage(src, face, fontSize, style, opts.BackgroundColor, opts.NoWindowAccessBar, opts.NoLineNum)
+	image, err := germanium.NewImage(src, face, fontSize, style, opts.BackgroundColor, opts.PaddingHeight, opts.PaddingWidth, opts.NoWindowAccessBar, opts.NoLineNum)
 	if err != nil {
 		return err
 	}

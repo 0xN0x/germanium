@@ -17,8 +17,6 @@ import (
 )
 
 const (
-	paddingWidth      = 60
-	paddingHeight     = 60
 	windowHeight      = 20 * 3
 	windowHeightNoBar = 10
 	lineWidth         = 40
@@ -38,13 +36,13 @@ var (
 
 // CalcWidth calculates the image width from the length of the longest line of
 // the source code, padding and line number
-func CalcWidth(maxLineLen int) int {
+func CalcWidth(maxLineLen, paddingWidth int) int {
 	return maxLineLen + (paddingWidth * 2) + lineWidth
 }
 
 // CalcHeight calculates the image height from the number of lines of the
 // source code, padding and access bar
-func CalcHeight(lineCount int, fontSize float64, noWindowAccessBar bool) int {
+func CalcHeight(lineCount, paddingHeight int, fontSize float64, noWindowAccessBar bool) int {
 	h := (lineCount * int((fontSize * 1.25))) + int(fontSize) + (paddingHeight * 2)
 	if !noWindowAccessBar {
 		h += windowHeight
@@ -68,7 +66,7 @@ type Labeler interface {
 var _ Labeler = (*Panel)(nil)
 
 // NewImage generates new base panel
-func NewImage(src io.Reader, face font.Face, fontSize float64, style, backgroundColor string, noWindowAccessBar, noLineNum bool) (*Panel, error) {
+func NewImage(src io.Reader, face font.Face, fontSize float64, style, backgroundColor string, paddingHeight, paddingWidth int, noWindowAccessBar, noLineNum bool) (*Panel, error) {
 	scanner := bufio.NewScanner(src)
 
 	var ret, ln int
@@ -84,8 +82,8 @@ func NewImage(src io.Reader, face font.Face, fontSize float64, style, background
 		return nil, err
 	}
 
-	width := CalcWidth(font.MeasureString(face, " ").Ceil() * (ret + 1))
-	height := CalcHeight(ln, fontSize, noWindowAccessBar)
+	width := CalcWidth(font.MeasureString(face, " ").Ceil()*(ret+1), paddingWidth)
+	height := CalcHeight(ln, paddingHeight, fontSize, noWindowAccessBar)
 
 	p := NewPanel(0, 0, width, height)
 	p.style = style
@@ -94,6 +92,8 @@ func NewImage(src io.Reader, face font.Face, fontSize float64, style, background
 	p.noLineNum = noLineNum
 	p.fontFace = face
 	p.fontSize = fontSize
+	p.paddingHeight = paddingHeight
+	p.paddingWidth = paddingWidth
 
 	return p, nil
 }
@@ -108,6 +108,8 @@ type Panel struct {
 	Formatter         Formatter
 	fontFace          font.Face
 	fontSize          float64
+	paddingHeight     int
+	paddingWidth      int
 }
 
 // NewPanel generates new panel
@@ -156,13 +158,17 @@ func (p *Panel) Draw() error {
 }
 
 func (p *Panel) drawWindowPanel(w, h int) {
-	window := NewPanel(paddingWidth, paddingHeight, w-paddingWidth, h-paddingHeight)
+	window := NewPanel(p.paddingWidth, p.paddingHeight, w-p.paddingWidth, h-p.paddingHeight)
 	window.fillColor(windowBackgroundColor)
 	draw.Draw(p.img, p.img.Bounds(), window.img, image.Point{0, 0}, draw.Over)
 }
 
 func (p *Panel) drawWindowControlPanel(w, h int) {
-	wc := NewPanel(paddingWidth, paddingHeight, w-paddingWidth, paddingHeight+h)
+	wc := NewPanel(p.paddingWidth, p.paddingHeight, w-p.paddingWidth, p.paddingHeight+h)
+
+	wc.paddingHeight = p.paddingHeight
+	wc.paddingWidth = p.paddingWidth
+
 	wc.fillColor(windowBackgroundColor)
 
 	wc.drawControlButtons()
@@ -172,7 +178,7 @@ func (p *Panel) drawWindowControlPanel(w, h int) {
 
 func (p *Panel) drawControlButtons() {
 	for i, bc := range []color.RGBA{close, minimum, maximum} {
-		center := image.Point{X: paddingWidth + (i * 30) + 20, Y: paddingHeight + 10*2}
+		center := image.Point{X: p.paddingWidth + (i * 30) + 20, Y: p.paddingHeight + 10*2}
 		p.drawCircle(center, radius, bc)
 	}
 }
@@ -183,12 +189,12 @@ func (p *Panel) drawAround(w, h int) {
 }
 
 func (p *Panel) drawRound(w, h int) {
-	round := NewPanel(paddingWidth-radius, paddingHeight-radius, w-paddingWidth+radius, h-paddingHeight+radius)
+	round := NewPanel(p.paddingWidth-radius, p.paddingHeight-radius, w-p.paddingWidth+radius, h-p.paddingHeight+radius)
 	corners := []image.Point{
-		{paddingWidth, paddingHeight},
-		{w - paddingWidth, paddingHeight},
-		{paddingWidth, h - paddingHeight},
-		{w - paddingWidth, h - paddingHeight},
+		{p.paddingWidth, p.paddingHeight},
+		{w - p.paddingWidth, p.paddingHeight},
+		{p.paddingWidth, h - p.paddingHeight},
+		{w - p.paddingWidth, h - p.paddingHeight},
 	}
 	for _, c := range corners {
 		round.drawCircle(c, radius, windowBackgroundColor)
@@ -198,10 +204,10 @@ func (p *Panel) drawRound(w, h int) {
 
 func (p *Panel) drawAroundBar(w, h int) {
 	aroundbars := []*Panel{
-		NewPanel(paddingWidth-radius, paddingHeight, paddingWidth, h-paddingHeight),
-		NewPanel(paddingWidth, paddingHeight-radius, w-paddingWidth, paddingHeight),
-		NewPanel(w-paddingWidth, paddingHeight, w-paddingWidth+radius, h-paddingHeight),
-		NewPanel(paddingWidth, h-paddingHeight, w-paddingWidth, h-paddingHeight+radius),
+		NewPanel(p.paddingWidth-radius, p.paddingHeight, p.paddingWidth, h-p.paddingHeight),
+		NewPanel(p.paddingWidth, p.paddingHeight-radius, w-p.paddingWidth, p.paddingHeight),
+		NewPanel(w-p.paddingWidth, p.paddingHeight, w-p.paddingWidth+radius, h-p.paddingHeight),
+		NewPanel(p.paddingWidth, h-p.paddingHeight, w-p.paddingWidth, h-p.paddingHeight+radius),
 	}
 	for _, ab := range aroundbars {
 		ab.fillColor(windowBackgroundColor)
@@ -291,13 +297,13 @@ func (p *Panel) Label(out io.Writer, src io.Reader, filename, language string) e
 		Face: p.fontFace,
 	}
 
-	spy := paddingHeight
+	spy := p.paddingHeight
 	if p.noWindowAccessBar {
 		spy += windowHeightNoBar
 	} else {
 		spy += windowHeight
 	}
-	sp := image.Point{X: paddingWidth, Y: spy}
+	sp := image.Point{X: p.paddingWidth, Y: spy}
 	p.Formatter = NewPNGFormatter(p.fontSize, drawer, sp, !p.noLineNum)
 	formatters.Register("png", p.Formatter)
 

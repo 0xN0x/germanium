@@ -7,6 +7,8 @@ type Options struct {
 	Language          string `short:"l" long:"language" description:"The language for syntax highlighting"`
 	Style             string `short:"s" long:"style" description:"The style for syntax highlighting"`
 	Clipboard         bool   `short:"c" long:"clip" description:"Copy image to clipboard"`
+	PaddingHeight     int    `long:"padding-height" default:"60" description:"Padding height"`
+	PaddingWidth      int    `long:"padding-width" default:"60" description:"Padding width"`
 	ListStyles        bool   `long:"list-styles" description:"List all available styles for syntax highlighting"`
 	ListFonts         bool   `long:"list-fonts" description:"List all available fonts in your system"`
 	NoLineNum         bool   `long:"no-line-number" description:"Hide the line number"`
